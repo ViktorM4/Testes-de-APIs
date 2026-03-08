@@ -30,6 +30,10 @@ def consumirApi(lat, lon):
     else: 
         logging.error(response.text)
 
+    if response.status_code == 429:
+    logging.warning("Rate limit atingido, aguardando próxima execução")
+    return None
+
 
 
 
@@ -60,6 +64,10 @@ def cotacao():
     else: 
         logging.error(response.text)
 
+    if response.status_code == 429:
+    logging.warning("Rate limit atingido, aguardando próxima execução")
+    return None
+
 with sqlite3.connect("/app/dados/dados.db") as conn:
     conn.execute("""
     CREATE TABLE IF NOT EXISTS registros(
@@ -73,18 +81,28 @@ with sqlite3.connect("/app/dados/dados.db") as conn:
 
 def job():
     try:
-        
-        
         lat, lon = geoLocal(cidade)
+        if lat is None:
+            return
+
         temperatura = consumirApi(lat, lon)
+        if temperatura is None:
+            logging.error("Temperatura inválida, abortando inserção")
+            return
+
         valor = cotacao()
+        if valor is None:
+            logging.error("Cotação inválida, abortando inserção")
+            return
+
         agora = datetime.now().strftime("%d/%m/%Y %H:%M")
         with sqlite3.connect("/app/dados/dados.db") as conn:
             conn.execute("""
                 INSERT INTO registros (data_hora, temperatura, cotacao)
                 VALUES (?,?,?)
             """, (agora, temperatura, valor))
-        logging.info(f"Dados de {cidade} adicionado,  {temperatura}°C,  cotação R$:{valor}")
+        logging.info(f"Dados de {cidade} adicionado, {temperatura}°C, cotação R$:{valor}")
+
     except Exception as e:
         logging.error(f"erro: {e}")
 
@@ -92,7 +110,7 @@ logging.info("SIstema Iniciado")
 
 job()
 
-schedule.every(10).minutes.do(job)
+schedule.every(60).minutes.do(job)
 
 
 while True:
