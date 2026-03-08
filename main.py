@@ -27,12 +27,14 @@ def consumirApi(lat, lon):
     if response.status_code == 200:
         dados = response.json()
         return(round(dados["main"]["temp"] - 273.15, 2))
+    elif response.status_code == 429:
+        logging.warning("Rate limit atingido, aguardando próxima execução")
+        return None
     else: 
         logging.error(response.text)
+        return None
 
-    if response.status_code == 429:
-    logging.warning("Rate limit atingido, aguardando próxima execução")
-    return None
+
 
 
 
@@ -61,12 +63,14 @@ def cotacao():
     if response.status_code == 200:
         valor = response.json()
         return (valor["USDBRL"]["bid"])
+    elif response.status_code == 429:
+        logging.warning("Rate limit atingido, aguardando próxima execução")
+        return None
     else: 
         logging.error(response.text)
+        return None
 
-    if response.status_code == 429:
-    logging.warning("Rate limit atingido, aguardando próxima execução")
-    return None
+    
 
 with sqlite3.connect("/app/dados/dados.db") as conn:
     conn.execute("""
