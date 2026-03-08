@@ -1,10 +1,15 @@
 import requests
 from dotenv import load_dotenv
 import os 
+from datetime import datetime
+import schedule
+import time
+import sqlite3
 
 load_dotenv()
-API_key = os.getenv("API_key")
 
+API_key = os.getenv("API_key")
+cidade = os.getenv("CIDADE")
 
 
 
@@ -15,7 +20,7 @@ def consumirApi(lat, lon):
 
     if response.status_code == 200:
         dados = response.json()
-        print(round(dados["main"]["temp"] - 273.15, 2))
+        return(round(dados["main"]["temp"] - 273.15, 2))
     else: 
         print(response.text)
 
@@ -32,7 +37,7 @@ def geoLocal(cidade):
         dados1 = response.json()
         return dados1[0]["lat"], dados1[0]["lon"]
     else: 
-        print(response.text)
+        return(response.text)
 
 #lat, lon = geoLocal(input("Informe sua cidade: "))
 
@@ -45,21 +50,47 @@ def cotacao():
     response = requests.get(url)
     if response.status_code == 200:
         valor = response.json()
-        print("Dolar hoje vale R$: ",(valor["USDBRL"]["bid"]))
+        return (valor["USDBRL"]["bid"])
     else: 
-        print(response.text)
-
-#cotacao()
-
-print("Escolha 1 para clima e 2 para cotação: ")
-escolha = input("Escolha: ")
-if escolha == "1":
-        lat, lon = geoLocal(input("Informe sua cidade: "))
-        consumirApi(lat, lon)
-else: 
-    cotacao()
+        return(response.text)
 
 
-    
-    
+
+
+
+def job():
+
+    conn = sqlite3.connect("/app/dados/dados.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS registros(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    data_hora TEXT,
+    temperatura TEXT,
+    cotacao TEXT)
+    """)
+    conn.commit()
+
+
+    lat, lon = geoLocal(cidade)
+    temperatura = consumirApi(lat, lon)
+    valor = cotacao()
+    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+    cursor.execute("""
+    INSERT INTO registros (data_hora, temperatura, cotacao)
+    VALUES (?,?,?)
+    """, (agora, temperatura, valor))
+    conn.commit()
+
+    conn.close()
+
+
+schedule.every(10).minutes.do(job)
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
+
+
 
