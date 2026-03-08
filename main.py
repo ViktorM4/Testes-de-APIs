@@ -54,39 +54,37 @@ def cotacao():
     else: 
         return(response.text)
 
-
-
-
-
-def job():
-
-    conn = sqlite3.connect("/app/dados/dados.db")
-    cursor = conn.cursor()
-
-    cursor.execute("""
+with sqlite3.connect("/app/dados/dados.db") as conn:
+    conn.execute("""
     CREATE TABLE IF NOT EXISTS registros(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     data_hora TEXT,
     temperatura TEXT,
     cotacao TEXT)
     """)
-    conn.commit()
 
 
-    lat, lon = geoLocal(cidade)
-    temperatura = consumirApi(lat, lon)
-    valor = cotacao()
-    agora = datetime.now().strftime("%d/%m/%Y %H:%M")
-    cursor.execute("""
-    INSERT INTO registros (data_hora, temperatura, cotacao)
-    VALUES (?,?,?)
-    """, (agora, temperatura, valor))
-    conn.commit()
 
-    conn.close()
+def job():
+    try:
+
+
+        lat, lon = geoLocal(cidade)
+        temperatura = consumirApi(lat, lon)
+        valor = cotacao()
+        agora = datetime.now().strftime("%d/%m/%Y %H:%M")
+        with sqlite3.connect("/app/dados/dados.db") as conn:
+            conn.execute("""
+                INSERT INTO registros (data_hora, temperatura, cotacao)
+                VALUES (?,?,?)
+            """, (agora, temperatura, valor))
+
+    except Exception as e:
+        print(f"erro: {e}")
 
 
 schedule.every(10).minutes.do(job)
+
 
 while True:
     schedule.run_pending()
