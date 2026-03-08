@@ -5,11 +5,17 @@ from datetime import datetime
 import schedule
 import time
 import sqlite3
+import logging
 
 load_dotenv()
 
 API_key = os.getenv("API_key")
 cidade = os.getenv("CIDADE")
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 
 
@@ -22,7 +28,7 @@ def consumirApi(lat, lon):
         dados = response.json()
         return(round(dados["main"]["temp"] - 273.15, 2))
     else: 
-        print(response.text)
+        logging.error(response.text)
 
 
 
@@ -37,7 +43,7 @@ def geoLocal(cidade):
         dados1 = response.json()
         return dados1[0]["lat"], dados1[0]["lon"]
     else: 
-        return(response.text)
+        logging.error(response.text)
 
 #lat, lon = geoLocal(input("Informe sua cidade: "))
 
@@ -52,7 +58,7 @@ def cotacao():
         valor = response.json()
         return (valor["USDBRL"]["bid"])
     else: 
-        return(response.text)
+        logging.error(response.text)
 
 with sqlite3.connect("/app/dados/dados.db") as conn:
     conn.execute("""
@@ -67,8 +73,8 @@ with sqlite3.connect("/app/dados/dados.db") as conn:
 
 def job():
     try:
-
-
+        
+        
         lat, lon = geoLocal(cidade)
         temperatura = consumirApi(lat, lon)
         valor = cotacao()
@@ -78,10 +84,13 @@ def job():
                 INSERT INTO registros (data_hora, temperatura, cotacao)
                 VALUES (?,?,?)
             """, (agora, temperatura, valor))
-
+        logging.info(f"Dados de {cidade} adicionado,  {temperatura}°C,  cotação R$:{valor}")
     except Exception as e:
-        print(f"erro: {e}")
+        logging.error(f"erro: {e}")
 
+logging.info("SIstema Iniciado")
+
+job()
 
 schedule.every(10).minutes.do(job)
 
